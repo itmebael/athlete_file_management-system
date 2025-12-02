@@ -8,9 +8,9 @@ FROM public.users
 ORDER BY created_at DESC;
 
 -- 2. Create admin user with your email
--- REPLACE 'your-email@example.com' with your actual email address
+-- REPLACE 'admin@ssu.edu.ph' with your actual email address if different
 INSERT INTO public.users (id, email, role, full_name)
-VALUES (gen_random_uuid(), 'your-email@example.com', 'admin', 'Admin User')
+VALUES (gen_random_uuid(), 'admin@ssu.edu.ph', 'admin', 'Admin User')
 ON CONFLICT (email) DO UPDATE SET 
   role = 'admin',
   full_name = 'Admin User';
@@ -19,7 +19,7 @@ ON CONFLICT (email) DO UPDATE SET
 SELECT 'Updated users:' as info;
 SELECT id, email, role, full_name, created_at 
 FROM public.users 
-WHERE email = 'your-email@example.com';
+WHERE email = 'admin@ssu.edu.ph';
 
 -- 4. Alternative: Update existing user to admin
 -- If you already have a user record, update it to admin

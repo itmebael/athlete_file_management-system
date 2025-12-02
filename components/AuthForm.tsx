@@ -872,15 +872,6 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                   </button>
                 </form>
 
-                {/* Admin Credentials Info (only show for Admin role) */}
-                {selectedRole === 'admin' && (
-                  <div className="mt-6 p-4 bg-blue-500/20 backdrop-blur-sm border border-blue-400/30 rounded-xl">
-                    <h4 className="text-blue-200 text-sm font-medium mb-2">Admin Access:</h4>
-                    <p className="text-blue-200/80 text-xs">Email: admin@ssu.edu.ph</p>
-                    <p className="text-blue-200/80 text-xs">Password: admin123</p>
-                  </div>
-                )}
-
                 {/* Error Message */}
                 {error && (
                   <div className="mt-6 p-4 bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-xl">

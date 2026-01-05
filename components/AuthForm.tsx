@@ -441,20 +441,18 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
     setSignUpLoading(true)
     
     try {
-      // Create account first (without ID picture)
+      // Prepare user metadata for the database trigger
       const userData = {
-        fullName: signUpForm.fullName,
-        studentId: signUpForm.studentId,
-        email: signUpForm.email,
+        full_name: signUpForm.fullName,
+        student_id: signUpForm.studentId,
         phone: signUpForm.phone,
         course: signUpForm.course,
-        yearLevel: signUpForm.yearLevel,
+        year_level: signUpForm.yearLevel,
         sport: signUpForm.sport,
         position: signUpForm.position,
         department: signUpForm.department,
         title: signUpForm.title,
         role: signUpRole,
-        id_picture_url: null, // Will be uploaded after account creation
         is_verified: false
       }
       

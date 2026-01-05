@@ -13,11 +13,13 @@ CREATE TABLE IF NOT EXISTS public.users (
   department TEXT,
   title TEXT,
   profile_picture_url TEXT,
+  id_picture_url TEXT,
+  is_verified BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Function to handle new user signup (SIMPLIFIED)
+-- Function to handle new user signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -25,18 +27,35 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- Simple insert with minimal validation
   INSERT INTO public.users (
     id, 
     email, 
     full_name, 
-    role
+    role,
+    student_id,
+    phone,
+    course,
+    year_level,
+    sport,
+    position,
+    department,
+    title,
+    is_verified
   )
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', 'User'),
-    COALESCE(NEW.raw_user_meta_data->>'role', 'student')
+    COALESCE(NEW.raw_user_meta_data->>'role', 'student'),
+    NEW.raw_user_meta_data->>'student_id',
+    NEW.raw_user_meta_data->>'phone',
+    NEW.raw_user_meta_data->>'course',
+    NEW.raw_user_meta_data->>'year_level',
+    NEW.raw_user_meta_data->>'sport',
+    NEW.raw_user_meta_data->>'position',
+    NEW.raw_user_meta_data->>'department',
+    NEW.raw_user_meta_data->>'title',
+    COALESCE((NEW.raw_user_meta_data->>'is_verified')::boolean, false)
   );
   
   RETURN NEW;

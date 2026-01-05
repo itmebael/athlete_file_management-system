@@ -1,0 +1,10 @@
+2:I[19107,[],"ClientPageRoot"]
+3:I[42129,["683","static/chunks/683-a1febc79af0f2a78.js","561","static/chunks/561-5b9d75c1f4b5001c.js","931","static/chunks/app/page-c5c0201219a60cbf.js"],"default",1]
+4:I[76476,["683","static/chunks/683-a1febc79af0f2a78.js","185","static/chunks/app/layout-617fcacd8ffcb139.js"],"ThemeProvider"]
+5:I[46281,["683","static/chunks/683-a1febc79af0f2a78.js","185","static/chunks/app/layout-617fcacd8ffcb139.js"],"AuthProvider"]
+6:I[4707,[],""]
+7:I[36423,[],""]
+8:I[85447,["306","static/chunks/306-a3641828c44ec61b.js","160","static/chunks/app/not-found-ea7563a263f353b4.js"],"default"]
+0:["EbQhsUaRWbz_rThZLVmBL",[[["",{"children":["__PAGE__",{}]},"$undefined","$undefined",true],["",{"children":["__PAGE__",{},[["$L1",["$","$L2",null,{"props":{"params":{},"searchParams":{}},"Component":"$3"}],null],null],null]},[[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/css/69d1b0db0503a302.css","precedence":"next","crossOrigin":"$undefined"}]],["$","html",null,{"lang":"en","children":["$","body",null,{"children":["$","$L4",null,{"children":["$","$L5",null,{"children":["$","$L6",null,{"parallelRouterKey":"children","segmentPath":["children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L7",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":["$","$L8",null,{}],"notFoundStyles":[]}]}]}]}]}]],null],null],["$L9",null]]]]
+9:[["$","meta","0",{"name":"viewport","content":"width=device-width, initial-scale=1"}],["$","meta","1",{"charSet":"utf-8"}],["$","title","2",{"children":"SSU APMS - Athletes Profile Management System"}],["$","meta","3",{"name":"description","content":"A comprehensive athletes profile management system for Sorsogon State University"}]]
+1:null

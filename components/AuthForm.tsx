@@ -453,7 +453,8 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
         department: signUpForm.department,
         title: signUpForm.title,
         role: signUpRole,
-        is_verified: false
+        is_verified: false,
+        profile_picture_url: null // Will be uploaded after account creation
       }
       
       // Map the role to the expected format for the auth context
@@ -466,6 +467,44 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
         return
       }
       
+      // Upload Profile Picture if selected
+      if (profileImage) {
+        try {
+          const { data: { user: currentUser } } = await supabase.auth.getUser()
+          
+          if (currentUser) {
+            const fileExt = profileImage.name.split('.').pop()
+            const fileName = `profile-pictures/${Date.now()}-${signUpForm.studentId || 'admin'}.${fileExt}`
+            
+            const { error: uploadError } = await supabase.storage
+              .from('athlete-files')
+              .upload(fileName, profileImage, {
+                cacheControl: '3600',
+                upsert: false
+              })
+            
+            if (uploadError) {
+              console.error('Profile picture upload error:', uploadError)
+            } else {
+              const { data: urlData } = supabase.storage
+                .from('athlete-files')
+                .getPublicUrl(fileName)
+              
+              const { error: updateError } = await supabase
+                .from('users')
+                .update({ profile_picture_url: urlData.publicUrl })
+                .eq('id', currentUser.id)
+              
+              if (updateError) {
+                console.error('Error updating user with profile picture URL:', updateError)
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Profile picture upload exception:', error)
+        }
+      }
+
       // Try to upload ID picture - user might not be authenticated yet during signup
       // So we'll try, but if it fails, we'll allow the user to upload it after email confirmation
       if (idPicture) {

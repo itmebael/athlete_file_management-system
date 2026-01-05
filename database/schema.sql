@@ -40,7 +40,8 @@ BEGIN
     position,
     department,
     title,
-    is_verified
+    is_verified,
+    profile_picture_url
   )
   VALUES (
     NEW.id,
@@ -55,7 +56,8 @@ BEGIN
     NEW.raw_user_meta_data->>'position',
     NEW.raw_user_meta_data->>'department',
     NEW.raw_user_meta_data->>'title',
-    COALESCE((NEW.raw_user_meta_data->>'is_verified')::boolean, false)
+    COALESCE((NEW.raw_user_meta_data->>'is_verified')::boolean, false),
+    NEW.raw_user_meta_data->>'profile_picture_url'
   );
   
   RETURN NEW;

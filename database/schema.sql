@@ -41,7 +41,8 @@ BEGIN
     department,
     title,
     is_verified,
-    profile_picture_url
+    profile_picture_url,
+    id_picture_url
   )
   VALUES (
     NEW.id,
@@ -57,7 +58,8 @@ BEGIN
     NEW.raw_user_meta_data->>'department',
     NEW.raw_user_meta_data->>'title',
     COALESCE((NEW.raw_user_meta_data->>'is_verified')::boolean, false),
-    NEW.raw_user_meta_data->>'profile_picture_url'
+    NEW.raw_user_meta_data->>'profile_picture_url',
+    NEW.raw_user_meta_data->>'id_picture_url'
   );
   
   RETURN NEW;
@@ -89,7 +91,8 @@ CREATE OR REPLACE FUNCTION public.create_user_profile(
   user_position TEXT DEFAULT '',
   user_department TEXT DEFAULT '',
   user_title TEXT DEFAULT '',
-  user_profile_picture_url TEXT DEFAULT ''
+  user_profile_picture_url TEXT DEFAULT '',
+  user_id_picture_url TEXT DEFAULT ''
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -121,7 +124,8 @@ BEGIN
     position,
     department,
     title,
-    profile_picture_url
+    profile_picture_url,
+    id_picture_url
   )
   VALUES (
     user_id,
@@ -136,7 +140,8 @@ BEGIN
     user_position,
     user_department,
     user_title,
-    user_profile_picture_url
+    user_profile_picture_url,
+    user_id_picture_url
   );
   
   RETURN TRUE;

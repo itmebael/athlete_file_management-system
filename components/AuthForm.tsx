@@ -171,13 +171,73 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
     setError('')
 
     try {
-        const { error } = await signIn(formData.email, formData.password)
+        const { error, data } = await signIn(formData.email, formData.password)
         if (error) {
-        setError(error.message)
+          setError(error.message)
           toast.error(error.message)
         } else {
           updateRememberPreference(rememberMe)
           toast.success('Welcome back!')
+
+          // Handle pending uploads if any
+          if (data.user) {
+            const handlePendingUploads = async () => {
+              // Check for pending ID picture
+              const pendingIdPic = sessionStorage.getItem('pending_id_picture')
+              if (pendingIdPic) {
+                try {
+                  const { data: fileData, name, studentId } = JSON.parse(pendingIdPic)
+                  const res = await fetch(fileData)
+                  const blob = await res.blob()
+                  const file = new File([blob], name, { type: blob.type })
+                  
+                  const fileExt = name.split('.').pop()
+                  const fileName = `id-pictures/${Date.now()}-${studentId}.${fileExt}`
+                  
+                  const { error: uploadError } = await supabase.storage
+                    .from('athlete-files')
+                    .upload(fileName, file, { cacheControl: '3600', upsert: false })
+                    
+                  if (!uploadError) {
+                    const { data: urlData } = supabase.storage.from('athlete-files').getPublicUrl(fileName)
+                    await supabase.from('users').update({ id_picture_url: urlData.publicUrl }).eq('id', data.user!.id)
+                    sessionStorage.removeItem('pending_id_picture')
+                  }
+                } catch (e) {
+                  console.error('Error uploading pending ID picture:', e)
+                }
+              }
+              
+              // Check for pending profile picture
+              const pendingProfilePic = sessionStorage.getItem('pending_profile_picture')
+              if (pendingProfilePic) {
+                try {
+                  const { data: fileData, name, studentId } = JSON.parse(pendingProfilePic)
+                  const res = await fetch(fileData)
+                  const blob = await res.blob()
+                  const file = new File([blob], name, { type: blob.type })
+                  
+                  const fileExt = name.split('.').pop()
+                  const fileName = `profile-pictures/${Date.now()}-${studentId}.${fileExt}`
+                  
+                  const { error: uploadError } = await supabase.storage
+                    .from('athlete-files')
+                    .upload(fileName, file, { cacheControl: '3600', upsert: false })
+                    
+                  if (!uploadError) {
+                    const { data: urlData } = supabase.storage.from('athlete-files').getPublicUrl(fileName)
+                    await supabase.from('users').update({ profile_picture_url: urlData.publicUrl }).eq('id', data.user!.id)
+                    sessionStorage.removeItem('pending_profile_picture')
+                  }
+                } catch (e) {
+                  console.error('Error uploading pending profile picture:', e)
+                }
+              }
+            }
+            
+            // Execute uploads without awaiting to prevent blocking UI
+            handlePendingUploads()
+          }
         }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
@@ -454,7 +514,8 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
         title: signUpForm.title,
         role: signUpRole,
         is_verified: false,
-        profile_picture_url: null // Will be uploaded after account creation
+        profile_picture_url: null, // Will be uploaded after account creation
+        id_picture_url: null // Will be uploaded after account creation
       }
       
       // Map the role to the expected format for the auth context
@@ -499,6 +560,18 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                 console.error('Error updating user with profile picture URL:', updateError)
               }
             }
+          } else {
+            // User not authenticated yet (waiting for email confirmation)
+            // Store profile picture in sessionStorage to upload after confirmation
+            const reader = new FileReader()
+            reader.onloadend = () => {
+              sessionStorage.setItem('pending_profile_picture', JSON.stringify({
+                data: reader.result,
+                name: profileImage.name,
+                studentId: signUpForm.studentId || 'admin'
+              }))
+            }
+            reader.readAsDataURL(profileImage)
           }
         } catch (error) {
           console.error('Profile picture upload exception:', error)

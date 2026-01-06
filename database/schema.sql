@@ -436,8 +436,7 @@ DROP POLICY IF EXISTS "Users can upload their own profile pictures" ON storage.o
 CREATE POLICY "Users can upload their own profile pictures" ON storage.objects
   FOR INSERT WITH CHECK (
     bucket_id = 'profile-pictures' AND 
-    auth.role() = 'authenticated' AND
-    auth.uid()::text = (storage.foldername(name))[1]
+    auth.role() = 'authenticated'
   );
 
 DROP POLICY IF EXISTS "Users can update their own profile pictures" ON storage.objects;
@@ -451,6 +450,37 @@ DROP POLICY IF EXISTS "Users can delete their own profile pictures" ON storage.o
 CREATE POLICY "Users can delete their own profile pictures" ON storage.objects
   FOR DELETE USING (
     bucket_id = 'profile-pictures' AND 
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- Create storage bucket for ID pictures (if it doesn't exist)
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('id-pictures', 'id-pictures', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage policies for ID pictures
+DROP POLICY IF EXISTS "Anyone can view ID pictures" ON storage.objects;
+CREATE POLICY "Anyone can view ID pictures" ON storage.objects
+  FOR SELECT USING (bucket_id = 'id-pictures');
+
+DROP POLICY IF EXISTS "Users can upload their own ID pictures" ON storage.objects;
+CREATE POLICY "Users can upload their own ID pictures" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'id-pictures' AND 
+    auth.role() = 'authenticated'
+  );
+
+DROP POLICY IF EXISTS "Users can update their own ID pictures" ON storage.objects;
+CREATE POLICY "Users can update their own ID pictures" ON storage.objects
+  FOR UPDATE USING (
+    bucket_id = 'id-pictures' AND 
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+DROP POLICY IF EXISTS "Users can delete their own ID pictures" ON storage.objects;
+CREATE POLICY "Users can delete their own ID pictures" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'id-pictures' AND 
     auth.uid()::text = (storage.foldername(name))[1]
   );
 

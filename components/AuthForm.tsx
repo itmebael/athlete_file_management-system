@@ -192,14 +192,14 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                   const file = new File([blob], name, { type: blob.type })
                   
                   const fileExt = name.split('.').pop()
-                  const fileName = `id-pictures/${Date.now()}-${studentId}.${fileExt}`
+                  const fileName = `${data.user!.id}/${Date.now()}-id.${fileExt}`
                   
                   const { error: uploadError } = await supabase.storage
-                    .from('athlete-files')
+                    .from('id-pictures')
                     .upload(fileName, file, { cacheControl: '3600', upsert: false })
                     
                   if (!uploadError) {
-                    const { data: urlData } = supabase.storage.from('athlete-files').getPublicUrl(fileName)
+                    const { data: urlData } = supabase.storage.from('id-pictures').getPublicUrl(fileName)
                     await supabase.from('users').update({ id_picture_url: urlData.publicUrl }).eq('id', data.user!.id)
                     sessionStorage.removeItem('pending_id_picture')
                   }
@@ -218,14 +218,14 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                   const file = new File([blob], name, { type: blob.type })
                   
                   const fileExt = name.split('.').pop()
-                  const fileName = `profile-pictures/${Date.now()}-${studentId}.${fileExt}`
+                  const fileName = `${data.user!.id}/${Date.now()}-profile.${fileExt}`
                   
                   const { error: uploadError } = await supabase.storage
-                    .from('athlete-files')
+                    .from('profile-pictures')
                     .upload(fileName, file, { cacheControl: '3600', upsert: false })
                     
                   if (!uploadError) {
-                    const { data: urlData } = supabase.storage.from('athlete-files').getPublicUrl(fileName)
+                    const { data: urlData } = supabase.storage.from('profile-pictures').getPublicUrl(fileName)
                     await supabase.from('users').update({ profile_picture_url: urlData.publicUrl }).eq('id', data.user!.id)
                     sessionStorage.removeItem('pending_profile_picture')
                   }
@@ -535,10 +535,11 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
           
           if (currentUser) {
             const fileExt = profileImage.name.split('.').pop()
-            const fileName = `profile-pictures/${Date.now()}-${signUpForm.studentId || 'admin'}.${fileExt}`
+            // Use user ID as folder name for RLS policies
+            const fileName = `${currentUser.id}/${Date.now()}-profile.${fileExt}`
             
             const { error: uploadError } = await supabase.storage
-              .from('athlete-files')
+              .from('profile-pictures')
               .upload(fileName, profileImage, {
                 cacheControl: '3600',
                 upsert: false
@@ -548,7 +549,7 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
               console.error('Profile picture upload error:', uploadError)
             } else {
               const { data: urlData } = supabase.storage
-                .from('athlete-files')
+                .from('profile-pictures')
                 .getPublicUrl(fileName)
               
               const { error: updateError } = await supabase
@@ -588,10 +589,11 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
           if (currentUser) {
             // User is authenticated, upload the ID picture
             const fileExt = idPicture.name.split('.').pop()
-            const fileName = `id-pictures/${Date.now()}-${signUpForm.studentId}.${fileExt}`
+            // Use user ID as folder name for RLS policies
+            const fileName = `${currentUser.id}/${Date.now()}-id.${fileExt}`
             
             const { data: uploadData, error: uploadError } = await supabase.storage
-              .from('athlete-files')
+              .from('id-pictures')
               .upload(fileName, idPicture, {
                 cacheControl: '3600',
                 upsert: false
@@ -603,7 +605,7 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
             } else {
               // Get public URL
               const { data: urlData } = supabase.storage
-                .from('athlete-files')
+                .from('id-pictures')
                 .getPublicUrl(fileName)
               
               // Update user profile with ID picture URL

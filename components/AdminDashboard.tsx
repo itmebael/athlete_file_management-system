@@ -179,6 +179,8 @@ export default function AdminDashboard() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
   const [currentStudentFolderId, setCurrentStudentFolderId] = useState<string | null>(null)
   const [folderColorOverrides, setFolderColorOverrides] = useState<Record<string, string>>({})
+  const [officeUrl, setOfficeUrl] = useState<string | null>(null)
+  const [officeTitle, setOfficeTitle] = useState<string | null>(null)
   const [supportsFolderColors, setSupportsFolderColors] = useState(true)
   const [selectedPdfFile, setSelectedPdfFile] = useState<FileRecord | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
@@ -723,6 +725,15 @@ export default function AdminDashboard() {
     setPdfLoading(false)
     setPdfError(null)
   }
+  const openOfficeDoc = (publicUrl: string, title: string) => {
+    const viewer = 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(publicUrl)
+    setOfficeUrl(viewer)
+    setOfficeTitle(title)
+  }
+  const closeOfficeDoc = () => {
+    setOfficeUrl(null)
+    setOfficeTitle(null)
+  }
 
   const getFolderColorValue = (folder: FolderRecord | null) => {
     if (!folder) return folderColorPalette[0]
@@ -934,10 +945,14 @@ export default function AdminDashboard() {
                 No files uploaded yet.
                                   </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {studentFiles.map((file) => {
                   const isPdf = file.mime_type.includes('pdf')
-                            return (
+                  const { data: urlData } = supabase.storage
+                    .from('athlete-files')
+                    .getPublicUrl(file.file_path || '')
+                  const publicUrl = urlData?.publicUrl
+                  return (
                   <div 
                                 key={file.id}
                     onClick={() => isPdf && handlePdfClick(file)}
@@ -948,9 +963,12 @@ export default function AdminDashboard() {
                         <p className="text-sm font-semibold text-slate-900 dark:text-white">{file.original_name}</p>
                         <p className="text-xs text-slate-500">{new Date(file.created_at).toLocaleDateString()}</p>
                               </div>
-                      <span className="text-xs px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      <span
+                        title={file.mime_type}
+                        className="text-[10px] sm:text-xs px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 truncate overflow-hidden whitespace-nowrap max-w-[120px] sm:max-w-[200px] xl:max-w-none shrink"
+                      >
                         {file.mime_type.split('/')[1] || file.mime_type}
-                                  </span>
+                      </span>
                                 </div>
                     <div className="text-sm text-slate-500">Size · {formatFileSize(file.file_size)}</div>
                     {isPdf && (
@@ -958,6 +976,52 @@ export default function AdminDashboard() {
                         Click to view PDF →
                                   </div>
                     )}
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      {publicUrl && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const filePath = file.file_path || file.name || file.id
+                            supabase.storage
+                              .from('athlete-files')
+                              .download(filePath)
+                              .then(({ data, error }) => {
+                                if (error || !data) {
+                                  toast.error('Failed to download file')
+                                  return
+                                }
+                                const url = URL.createObjectURL(data)
+                                const a = document.createElement('a')
+                                a.href = url
+                                a.download = file.original_name
+                                document.body.appendChild(a)
+                                a.click()
+                                document.body.removeChild(a)
+                                URL.revokeObjectURL(url)
+                                toast.success('File downloaded successfully')
+                              })
+                              .catch(() => toast.error('Failed to download file'))
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Download
+                        </button>
+                      )}
+                      {!isPdf && publicUrl && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openOfficeDoc(publicUrl, file.original_name)
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        >
+                          Open
+                        </button>
+                      )}
+                    </div>
                                 </div>
                             )
                           })}
@@ -1128,6 +1192,18 @@ export default function AdminDashboard() {
                         )}
                   </div>
                 )}
+              {officeUrl && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={closeOfficeDoc} />
+                  <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-5xl h-[80vh] overflow-hidden">
+                    <div className="flex items-center justify-between p-3 border-b border-slate-200 dark:border-slate-700">
+                      <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">{officeTitle}</h3>
+                      <button onClick={closeOfficeDoc} className="px-3 py-1.5 text-xs rounded-lg bg-slate-200 dark:bg-slate-700">Close</button>
+                    </div>
+                    <iframe src={officeUrl} title={officeTitle || 'Document'} className="w-full h-full" />
+                  </div>
+                </div>
+              )}
               </div>
     )
   }

@@ -270,7 +270,7 @@ export default function StudentDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, profileData.sport])
 
   const fetchProfilePicture = useCallback(async () => {
     try {

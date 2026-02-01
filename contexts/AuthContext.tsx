@@ -26,6 +26,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const shouldPersistSession = () => {
+    if (typeof window === 'undefined') return true
+    return localStorage.getItem('rememberMe') === 'true'
+  }
+
   const clearRememberPreference = () => {
     if (typeof window === 'undefined') return
     localStorage.removeItem('rememberMe')

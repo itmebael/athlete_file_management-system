@@ -337,7 +337,7 @@ export default function AdminDashboard() {
         }
       }
 
-      toast.success(`Folder created for year ${folderData.year || newFolder.year}`)
+      toast.success(`Folder created for year ${folderData?.year || newFolder.year}`)
       setNewFolder({ name: '', description: '', color: '#FCD34D', year: new Date().getFullYear(), sport_category: '' })
       setShowCreateFolder(false)
       await loadAllData()
@@ -990,7 +990,7 @@ export default function AdminDashboard() {
                                     </div>
               {!supportsFolderColors && (
                 <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                  Tip: color preferences are saved in your browser since the database doesn't support folder colors yet.
+                  Tip: color preferences are saved in your browser since the database doesn&apos;t support folder colors yet.
                 </p>
                                   )}
                                 </div>
@@ -1193,7 +1193,7 @@ export default function AdminDashboard() {
                 className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent"
               >
                 <option value="">All Years</option>
-                {Array.from(new Set(folders.map(f => f.year).filter(Boolean))).sort((a, b) => (b || 0) - (a || 0)).map(year => (
+                {Array.from(new Set(folders.map(f => f.year).filter((y): y is number => typeof y === 'number'))).sort((a, b) => (b || 0) - (a || 0)).map(year => (
                   <option key={year} value={year}>{year}</option>
                 ))}
               </select>
@@ -1433,6 +1433,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-4 flex-1">
                   {athlete.profile_picture_url ? (
                     <div className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm border-2 border-white/30 bg-white/20">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
                         src={athlete.profile_picture_url} 
                         alt={athlete.full_name || 'Athlete'} 
@@ -2018,7 +2019,7 @@ export default function AdminDashboard() {
                 // Uses sport_category column (text) from folders table
                 const sportsForYear = new Set(
                   foldersForYear
-                    .filter(f => f.sport_category !== null && f.sport_category.trim() !== '')
+                    .filter(f => f.sport_category && f.sport_category.trim() !== '')
                     .map(f => f.sport_category!.trim().toLowerCase())
                 )
                 

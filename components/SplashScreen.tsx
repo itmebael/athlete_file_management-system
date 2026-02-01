@@ -66,7 +66,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           transition={{ delay: 0.5, duration: 0.8 }}
           className="text-5xl md:text-7xl font-bold text-blue-900 dark:text-white mb-4"
         >
-          AthleteFile
+          SSU Records
         </motion.h1>
 
         <motion.div
@@ -75,7 +75,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           transition={{ delay: 0.7, duration: 0.8 }}
           className="mb-12"
         >
-          <p className="text-2xl text-blue-700 dark:text-blue-100 mb-2 font-medium">Professional File Management System</p>
+          <p className="text-2xl text-blue-700 dark:text-blue-100 mb-2 font-medium">Records Management for SSU Athletes</p>
           <p className="text-lg text-blue-600 dark:text-blue-200">Secure • Efficient • Modern</p>
         </motion.div>
 

@@ -9,8 +9,8 @@ const poppins = Poppins({
 })
 
 export const metadata = {
-  title: 'SSU APMS - Athletes Profile Management System',
-  description: 'A comprehensive athletes profile management system for Sorsogon State University',
+  title: 'RECORDS MANAGEMENT FOR SSU ATHLETES',
+  description: 'Records Management for SSU Athletes',
 }
 
 export default function RootLayout({

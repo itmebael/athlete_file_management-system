@@ -823,8 +823,8 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
                   )}
                   <div className="flex-1">
                     <div className="mb-4">
-                      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1">SSU APMS</h1>
-                      <p className="text-white/80 text-xs sm:text-sm">Athletes Profile Management System</p>
+                      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1">RECORDS MANAGEMENT</h1>
+                      <p className="text-white/80 text-xs sm:text-sm">FOR SSU ATHLETES</p>
                     </div>
                     
                     {/* Feature Highlights */}

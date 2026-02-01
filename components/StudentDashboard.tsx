@@ -230,6 +230,8 @@ export default function StudentDashboard() {
 
   const fetchData = useCallback(async () => {
     try {
+      const currentYear = new Date().getFullYear()
+      
       // Fetch student's personal folders only
       const { data: studentFoldersData } = await supabase
         .from('student_folders')
@@ -245,12 +247,19 @@ export default function StudentDashboard() {
         .not('student_folder_id', 'is', null)
         .order('created_at', { ascending: false })
 
-      // Fetch public sport folders
-      const { data: publicFolders } = await supabase
+      // Fetch public sport folders for current year and matching student's sport
+      let publicFoldersQuery = supabase
         .from('folders')
         .select('*')
         .eq('is_public', true)
-        .order('created_at', { ascending: false })
+        .eq('year', currentYear)
+      
+      // If student has a sport, filter by sport category
+      if (profileData.sport) {
+        publicFoldersQuery = publicFoldersQuery.eq('sport_category', profileData.sport)
+      }
+      
+      const { data: publicFolders } = await publicFoldersQuery.order('created_at', { ascending: false })
 
       setStudentFolders(studentFoldersData || [])
       setPersonalFiles((filesData as unknown as StoredFile[]) || [])
@@ -495,6 +504,30 @@ export default function StudentDashboard() {
     if (!selectedFolder) {
       toast.error('Please select a subfolder to upload to')
       return
+    }
+    
+    // Validate folder restrictions: current year and matching sport
+    const currentYear = new Date().getFullYear()
+    const subfolder = sportSubfolders.find(sf => sf.id === selectedFolder)
+    if (subfolder && selectedSportFolder) {
+      // Check if the parent sport folder is for current year
+      const { data: parentFolder } = await supabase
+        .from('folders')
+        .select('year, sport_category')
+        .eq('id', selectedSportFolder.id)
+        .single()
+      
+      if (parentFolder) {
+        if (parentFolder.year !== currentYear) {
+          toast.error(`You can only upload to folders for the current year (${currentYear})`)
+          return
+        }
+        
+        if (parentFolder.sport_category && profileData.sport && parentFolder.sport_category !== profileData.sport) {
+          toast.error(`You can only upload to folders for your sport category (${profileData.sport})`)
+          return
+        }
+      }
     }
     
     try {

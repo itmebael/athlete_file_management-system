@@ -4,6 +4,9 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
+// Get Supabase URL for storage cleanup
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+
 type Role = 'admin' | 'student'
 
 interface AuthContextType {
@@ -32,14 +35,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true
 
     const initializeAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession()
 
-      if (!isMounted) return
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
+        // Handle refresh token errors
+        if (error) {
+          console.warn('Session error:', error.message)
+          // Clear invalid session
+          if (error.message?.includes('refresh') || error.message?.includes('token')) {
+            await supabase.auth.signOut()
+            if (typeof window !== 'undefined') {
+              // Clear all Supabase-related storage
+              localStorage.removeItem('sb-' + supabaseUrl.split('//')[1]?.split('.')[0] + '-auth-token')
+              sessionStorage.clear()
+            }
+          }
+          if (!isMounted) return
+          setSession(null)
+          setUser(null)
+          setLoading(false)
+          return
+        }
+
+        if (session && !shouldPersistSession()) {
+          await supabase.auth.signOut()
+          clearRememberPreference()
+          if (!isMounted) return
+          setSession(null)
+          setUser(null)
+          setLoading(false)
+          return
+        }
+
+        if (!isMounted) return
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
+      } catch (err) {
+        console.error('Auth initialization error:', err)
+        // Clear session on error
+        await supabase.auth.signOut()
+        if (!isMounted) return
+        setSession(null)
+        setUser(null)
+        setLoading(false)
+      }
     }
 
     initializeAuth()
@@ -47,7 +90,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Handle token refresh errors
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        // Token refresh failed, clear session
+        await supabase.auth.signOut()
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('sb-' + supabaseUrl.split('//')[1]?.split('.')[0] + '-auth-token')
+        }
+      }
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)

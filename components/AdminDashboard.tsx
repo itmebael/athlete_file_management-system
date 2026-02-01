@@ -23,6 +23,7 @@ import {
   FileText,
   Check,
   Pencil,
+  Eye,
 } from 'lucide-react'
 import { BarChart, PieChart, LineChart, Bar, Pie, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
 import { supabase } from '@/lib/supabase'
@@ -37,6 +38,8 @@ interface FolderRecord {
   created_at: string
   created_by?: string | null
   color?: string | null
+  year?: number | null
+  sport_category?: string | null
 }
 
 interface StudentFolderRecord {
@@ -167,7 +170,12 @@ export default function AdminDashboard() {
   const [announcements, setAnnouncements] = useState<AnnouncementRecord[]>([])
 
   const [showCreateFolder, setShowCreateFolder] = useState(false)
-  const [newFolder, setNewFolder] = useState({ name: '', description: '', color: '#FCD34D' })
+  const [newFolder, setNewFolder] = useState({ name: '', description: '', color: '#FCD34D', year: new Date().getFullYear(), sport_category: '' })
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const [showReportPreview, setShowReportPreview] = useState(false)
+  const [reportPreviewData, setReportPreviewData] = useState<any[]>([])
+  const [reportPreviewHeaders, setReportPreviewHeaders] = useState<string[]>([])
+  const [reportPreviewTitle, setReportPreviewTitle] = useState('')
 
   const [showCreateAnnouncement, setShowCreateAnnouncement] = useState(false)
   const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '', recipientId: 'all' })
@@ -187,12 +195,10 @@ export default function AdminDashboard() {
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [reportType, setReportType] = useState<string>('athletes')
-  const [dateRange, setDateRange] = useState<string>('this-month')
+  const [dateRange, setDateRange] = useState<string>(new Date().getFullYear().toString())
   const [showReportTypeDropdown, setShowReportTypeDropdown] = useState(false)
   const [showDateRangeDropdown, setShowDateRangeDropdown] = useState(false)
   const [selectedSportFolderForReport, setSelectedSportFolderForReport] = useState<string>('')
-  const [customStartDate, setCustomStartDate] = useState<string>('')
-  const [customEndDate, setCustomEndDate] = useState<string>('')
   const [userSearch, setUserSearch] = useState<string>('')
   const [folderSearch, setFolderSearch] = useState<string>('')
 
@@ -239,7 +245,7 @@ export default function AdminDashboard() {
       setLoading(true)
     try {
       const [foldersRes, studentFoldersRes, filesRes, usersRes, announcementsRes] = await Promise.all([
-        supabase.from('folders').select('*').order('created_at', { ascending: false }),
+        supabase.from('folders').select('*').order('year', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }),
         supabase
           .from('student_folders')
           .select(`
@@ -286,11 +292,18 @@ export default function AdminDashboard() {
       return
     }
 
+    if (!newFolder.sport_category?.trim()) {
+      toast.error('Sport category is required')
+      return
+    }
+
     try {
       const basePayload = {
         name: newFolder.name.trim(),
         description: newFolder.description.trim() || null,
         created_by: user?.id ?? null,
+        year: newFolder.year || new Date().getFullYear(),
+        sport_category: newFolder.sport_category.trim(),
       }
 
       let folderData: FolderRecord | null = null
@@ -324,13 +337,25 @@ export default function AdminDashboard() {
         }
       }
 
-      toast.success('Folder created')
-      setNewFolder((prev) => ({ ...prev, name: '', description: '' }))
+      toast.success(`Folder created for year ${folderData.year || newFolder.year}`)
+      setNewFolder({ name: '', description: '', color: '#FCD34D', year: new Date().getFullYear(), sport_category: '' })
       setShowCreateFolder(false)
       await loadAllData()
     } catch (error) {
       console.error(error)
       toast.error('Failed to create folder')
+    }
+  }
+
+  const createNextYearFolders = async () => {
+    try {
+      const { error } = await supabase.rpc('create_next_year_folders')
+      if (error) throw error
+      toast.success('Folders for next year created successfully')
+      await loadAllData()
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to create next year folders. You may need to run the SQL function manually.')
     }
   }
 
@@ -873,6 +898,10 @@ export default function AdminDashboard() {
               </button>
             )}
             <button onClick={loadAllData} className="px-4 py-2 text-sm rounded-lg bg-slate-200 dark:bg-slate-700">Refresh</button>
+            <button onClick={createNextYearFolders} className="px-4 py-2 text-sm rounded-lg bg-green-600 text-white">
+              <Calendar className="inline w-4 h-4 mr-1" />
+              Create Next Year Folders
+            </button>
             <button onClick={() => setShowCreateFolder(true)} className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white">
               <Plus className="inline w-4 h-4 mr-1" />
               New Folder
@@ -908,6 +937,40 @@ export default function AdminDashboard() {
               placeholder="Description"
               className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent"
             />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Year</label>
+                <input
+                  type="number"
+                  value={newFolder.year}
+                  onChange={(e) => setNewFolder((prev) => ({ ...prev, year: parseInt(e.target.value) || new Date().getFullYear() }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent"
+                  min="2020"
+                  max="2100"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Sport Category *</label>
+                <select
+                  value={newFolder.sport_category}
+                  onChange={(e) => setNewFolder((prev) => ({ ...prev, sport_category: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent"
+                  required
+                >
+                  <option value="">Select Sport</option>
+                  <option value="Basketball">Basketball</option>
+                  <option value="Volleyball">Volleyball</option>
+                  <option value="Football">Football</option>
+                  <option value="Track and Field">Track and Field</option>
+                  <option value="Swimming">Swimming</option>
+                  <option value="Tennis">Tennis</option>
+                  <option value="Badminton">Badminton</option>
+                  <option value="Chess">Chess</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
                   <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Folder color</label>
               <div className="flex items-center gap-3">
@@ -927,7 +990,7 @@ export default function AdminDashboard() {
                                     </div>
               {!supportsFolderColors && (
                 <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                  Tip: color preferences are saved in your browser since the database doesn’t support folder colors yet.
+                  Tip: color preferences are saved in your browser since the database doesn't support folder colors yet.
                 </p>
                                   )}
                                 </div>
@@ -1119,12 +1182,57 @@ export default function AdminDashboard() {
                           })
                         )}
                       </div>
-        ) : (
-          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredTopFolders.length === 0 ? (
-              <p className="text-sm text-slate-500">No folders yet.</p>
-              ) : (
-              filteredTopFolders.map((folder) => {
+                ) : (
+          <div className="space-y-6">
+            {/* Year Filter */}
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Filter by Year:</label>
+              <select
+                value={selectedYear || ''}
+                onChange={(e) => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
+                className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent"
+              >
+                <option value="">All Years</option>
+                {Array.from(new Set(folders.map(f => f.year).filter(Boolean))).sort((a, b) => (b || 0) - (a || 0)).map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Folders organized by year */}
+            {(() => {
+              // Use year column (integer) from folders table - filter where year is not null
+              const filteredFolders = selectedYear ? folders.filter(f => f.year !== null && f.year === selectedYear) : folders
+              const foldersByYear = filteredFolders.reduce((acc, folder) => {
+                // Use the folder's year, or default to current year if not set
+                const year = folder.year ?? new Date().getFullYear()
+                if (!acc[year]) acc[year] = []
+                acc[year].push(folder)
+                return acc
+              }, {} as Record<number, FolderRecord[]>)
+              
+              const sortedYears = Object.keys(foldersByYear).map(Number).sort((a, b) => b - a)
+              
+              if (sortedYears.length === 0) {
+                return <p className="text-sm text-slate-500">No folders yet.</p>
+              }
+              
+              return sortedYears.map(year => (
+                <div key={year} className="space-y-4 mb-8">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Calendar className="w-5 h-5" />
+                      {year}
+                      <span className="text-sm font-normal text-slate-500">({foldersByYear[year].length} folder{foldersByYear[year].length !== 1 ? 's' : ''})</span>
+                    </h3>
+                    {year === new Date().getFullYear() && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium">
+                        Current Year
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {foldersByYear[year].map((folder) => {
                 const baseColor = getFolderColorValue(folder)
                 return (
                   <div
@@ -1183,14 +1291,26 @@ export default function AdminDashboard() {
                           <Calendar className="w-3.5 h-3.5" />
                           <span>{new Date(folder.created_at).toLocaleDateString()}</span>
                                   </div>
-                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Public Folder</span>
+                        <div className="flex flex-col items-end gap-1">
+                          {folder.year && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold">
+                              {folder.year}
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            {folder.sport_category || 'Public Folder'}
+                          </span>
+                        </div>
                                 </div>
                     </div>
                   </div>
                             )
-                          })
-                        )}
+                          })}
                   </div>
+                </div>
+              ))
+            })()}
+          </div>
                 )}
               {officeUrl && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1311,9 +1431,19 @@ export default function AdminDashboard() {
               <div className="flex flex-col md:flex-row md:items-center gap-4">
                 {/* Avatar & Basic Info */}
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                    {athlete.full_name?.charAt(0) || 'A'}
-                  </div>
+                  {athlete.profile_picture_url ? (
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm border-2 border-white/30 bg-white/20">
+                      <img 
+                        src={athlete.profile_picture_url} 
+                        alt={athlete.full_name || 'Athlete'} 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0">
+                      {athlete.full_name?.charAt(0)?.toUpperCase() || 'A'}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-slate-900 dark:text-white text-lg">{athlete.full_name}</h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{athlete.email}</p>
@@ -1688,53 +1818,174 @@ export default function AdminDashboard() {
   }
 
   const getDateRangeFilter = () => {
-    const now = new Date()
-    let startDate: Date
-    let endDate: Date = now
-
-    switch (dateRange) {
-      case 'today':
-        startDate = new Date(now.setHours(0, 0, 0, 0))
-        endDate = new Date(now.setHours(23, 59, 59, 999))
-        break
-      case 'this-week':
-        startDate = new Date(now)
-        startDate.setDate(now.getDate() - now.getDay())
-        startDate.setHours(0, 0, 0, 0)
-        endDate = new Date(now)
-        endDate.setHours(23, 59, 59, 999)
-        break
-      case 'this-month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-        break
-      case 'last-month':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
-        break
-      case 'this-year':
-        startDate = new Date(now.getFullYear(), 0, 1)
-        endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
-        break
-      case 'custom-range':
-        if (customStartDate && customEndDate) {
-          startDate = new Date(customStartDate)
-          startDate.setHours(0, 0, 0, 0)
-          endDate = new Date(customEndDate)
-          endDate.setHours(23, 59, 59, 999)
-        } else {
-          return null
-        }
-        break
-      default:
-        return null
+    // dateRange is now a year string (e.g., "2025", "2024")
+    const selectedYear = parseInt(dateRange)
+    
+    if (isNaN(selectedYear)) {
+      return null
     }
-
+    
+    const startDate = new Date(selectedYear, 0, 1) // January 1st of selected year
+    const endDate = new Date(selectedYear, 11, 31, 23, 59, 59, 999) // December 31st of selected year
+    
     return { startDate, endDate }
+  }
+
+  const previewReport = () => {
+    const dateFilter = getDateRangeFilter()
+    const selectedSport = selectedSportFolderForReport ? folders.find(f => f.id === selectedSportFolderForReport)?.sport_category : null
+
+    try {
+      let previewData: any[] = []
+      let headers: string[] = []
+      let title = ''
+
+      switch (reportType) {
+        case 'athletes':
+          let athletesData = students
+          
+          // Filter by year: show athletes who are linked to folders for the selected year
+          if (dateRange) {
+            const selectedYear = parseInt(dateRange)
+            if (!isNaN(selectedYear)) {
+              // Get all folder IDs for the selected year
+              // Use year column (integer) from folders table - filter where year is not null
+              const foldersForYear = folders.filter(f => f.year !== null && f.year === selectedYear)
+              const folderIdsForYear = new Set(foldersForYear.map(f => f.id))
+              
+              if (folderIdsForYear.size > 0) {
+                // Find athletes who have student_folders linked to folders for this year
+                const athleteIdsWithFoldersForYear = new Set(
+                  studentFolders
+                    .filter(sf => sf.sport_folder_id && folderIdsForYear.has(sf.sport_folder_id))
+                    .map(sf => sf.student_id)
+                    .filter(Boolean)
+                )
+                
+                // Also include athletes whose sport matches folders for this year (as fallback)
+                const sportsForYear = new Set(
+                  foldersForYear
+                    .filter(f => f.sport_category)
+                    .map(f => f.sport_category!.trim().toLowerCase())
+                )
+                
+                // Show athletes who either:
+                // 1. Have student_folders linked to folders for this year, OR
+                // 2. Their sport matches a folder's sport_category for this year
+                athletesData = athletesData.filter(athlete => {
+                  // Check if athlete has a student_folder linked to a folder for this year
+                  if (athleteIdsWithFoldersForYear.has(athlete.id)) {
+                    return true
+                  }
+                  
+                  // Fallback: check if athlete's sport matches a folder's sport_category
+                  if (athlete.sport && sportsForYear.size > 0) {
+                    const athleteSport = athlete.sport.trim().toLowerCase()
+                    return sportsForYear.has(athleteSport)
+                  }
+                  
+                  return false
+                })
+              } else {
+                // If no folders exist for this year, show no athletes
+                athletesData = []
+              }
+            }
+          }
+          
+          // Further filter by sport category if selected (also case-insensitive)
+          if (selectedSport) {
+            const selectedSportNormalized = selectedSport.trim().toLowerCase()
+            athletesData = athletesData.filter(s => {
+              if (!s.sport) return false
+              return s.sport.trim().toLowerCase() === selectedSportNormalized
+            })
+          }
+          
+          headers = ['Full Name', 'Email', 'Student ID', 'Sport', 'Course', 'Year Level', 'Phone', 'Status', 'Verified', 'Created Date']
+          previewData = athletesData.map(athlete => ({
+            'Full Name': athlete.full_name || '',
+            'Email': athlete.email || '',
+            'Student ID': athlete.student_id || '',
+            'Sport': athlete.sport || '',
+            'Course': athlete.course || '',
+            'Year Level': (athlete as any).year_level || '',
+            'Phone': (athlete as any).phone || '',
+            'Status': athlete.is_verified ? 'Verified' : 'Pending',
+            'Verified': athlete.is_verified ? 'Yes' : 'No',
+            'Created Date': new Date(athlete.created_at).toLocaleDateString()
+          }))
+          const yearLabel = dateRange ? dateRange : new Date().getFullYear().toString()
+          title = `Athletes Report - Year ${yearLabel}${selectedSport ? ` - ${selectedSport}` : ' - All Sports'} (${previewData.length} records)`
+          break
+          
+        case 'folders': {
+          let foldersData = folders
+          
+          // Filter by selected folder if specified
+          if (selectedSportFolderForReport) {
+            foldersData = foldersData.filter(f => f.id === selectedSportFolderForReport)
+          }
+          
+          // Filter by year column from folders table (integer type)
+          // This uses the year field which represents which year the folder is for
+          if (dateRange) {
+            const selectedYear = parseInt(dateRange)
+            if (!isNaN(selectedYear)) {
+              // Filter folders where year column matches selected year
+              foldersData = foldersData.filter(f => f.year !== null && f.year === selectedYear)
+            }
+          }
+          
+          headers = ['Folder Name', 'Description', 'Year', 'Sport Category', 'Created By', 'Total Subfolders', 'Total Files', 'Created Date', 'Color']
+          previewData = foldersData.map(folder => {
+            const relatedStudentFolders = studentFolders.filter(
+              (sf) => sf.sport_folder_id === folder.id
+            )
+            const relatedStudentFolderIds = relatedStudentFolders.map(sf => sf.id)
+            const totalFilesForFolder = files.filter(file => {
+              if (file.folder_id === folder.id) return true
+              if (file.student_folder_id && relatedStudentFolderIds.includes(file.student_folder_id)) return true
+              return false
+            }).length
+            
+            return {
+              'Folder Name': folder.name || '',
+              'Description': folder.description || '',
+              'Year': folder.year || 'N/A',
+              'Sport Category': folder.sport_category || 'N/A',
+              'Created By': folder.created_by || 'N/A',
+              'Total Subfolders': relatedStudentFolders.length.toString(),
+              'Total Files': totalFilesForFolder.toString(),
+              'Created Date': new Date(folder.created_at).toLocaleDateString(),
+              'Color': folder.color || 'N/A'
+            }
+          })
+          const yearLabel = dateRange ? dateRange : new Date().getFullYear().toString()
+          const folderName = selectedSportFolderForReport ? folders.find(f => f.id === selectedSportFolderForReport)?.name || '' : 'All Folders'
+          title = `Folders Report - Year ${yearLabel}${selectedSportFolderForReport ? ` - ${folderName}` : ''} (${previewData.length} records)`
+          break
+        }
+          
+        default:
+          toast.error('Preview not available for this report type')
+          return
+      }
+      
+      setReportPreviewData(previewData)
+      setReportPreviewHeaders(headers)
+      setReportPreviewTitle(title)
+      setShowReportPreview(true)
+    } catch (error) {
+      console.error('Preview error:', error)
+      toast.error('Failed to generate preview')
+    }
   }
 
   const generateAndDownloadReport = () => {
     const dateFilter = getDateRangeFilter()
+    const selectedSport = selectedSportFolderForReport ? folders.find(f => f.id === selectedSportFolderForReport)?.sport_category : null
+    const yearLabel = dateRange ? dateRange : new Date().getFullYear().toString()
 
     try {
       let csvContent = ''
@@ -1743,12 +1994,68 @@ export default function AdminDashboard() {
       switch (reportType) {
         case 'athletes':
           let athletesData = students
-          if (dateFilter) {
-            athletesData = students.filter(s => {
-              const created = new Date(s.created_at)
-              return created >= dateFilter.startDate && created <= dateFilter.endDate
+          
+          // Filter by year: show athletes who are linked to folders for the selected year
+          // Uses year column (integer) and sport_category column (text) from folders table
+          if (dateRange) {
+            const selectedYear = parseInt(dateRange)
+            if (!isNaN(selectedYear)) {
+              // Get all folders for the selected year using the year column (integer)
+              // Filter where year is not null and matches selected year
+              const foldersForYear = folders.filter(f => f.year !== null && f.year === selectedYear)
+              const folderIdsForYear = new Set(foldersForYear.map(f => f.id))
+              
+              if (folderIdsForYear.size > 0) {
+                // Find athletes who have student_folders linked to folders for this year
+                const athleteIdsWithFoldersForYear = new Set(
+                  studentFolders
+                    .filter(sf => sf.sport_folder_id && folderIdsForYear.has(sf.sport_folder_id))
+                    .map(sf => sf.student_id)
+                    .filter(Boolean)
+                )
+                
+                // Also include athletes whose sport matches folders' sport_category for this year
+                // Uses sport_category column (text) from folders table
+                const sportsForYear = new Set(
+                  foldersForYear
+                    .filter(f => f.sport_category !== null && f.sport_category.trim() !== '')
+                    .map(f => f.sport_category!.trim().toLowerCase())
+                )
+                
+                // Show athletes who either:
+                // 1. Have student_folders linked to folders for this year, OR
+                // 2. Their sport matches a folder's sport_category (text column) for this year
+                athletesData = athletesData.filter(athlete => {
+                  // Check if athlete has a student_folder linked to a folder for this year
+                  if (athleteIdsWithFoldersForYear.has(athlete.id)) {
+                    return true
+                  }
+                  
+                  // Fallback: check if athlete's sport matches a folder's sport_category
+                  if (athlete.sport && sportsForYear.size > 0) {
+                    const athleteSport = athlete.sport.trim().toLowerCase()
+                    return sportsForYear.has(athleteSport)
+                  }
+                  
+                  return false
+                })
+              } else {
+                // If no folders exist for this year, show no athletes
+                athletesData = []
+              }
+            }
+          }
+          
+          // Further filter by sport category if selected (also case-insensitive)
+          // Uses sport_category column from folders table
+          if (selectedSport) {
+            const selectedSportNormalized = selectedSport.trim().toLowerCase()
+            athletesData = athletesData.filter(s => {
+              if (!s.sport) return false
+              return s.sport.trim().toLowerCase() === selectedSportNormalized
             })
           }
+          
           const athleteHeaders = ['Full Name', 'Email', 'Student ID', 'Sport', 'Course', 'Year Level', 'Phone', 'Status', 'Verified', 'Created Date']
           csvContent = [
             athleteHeaders.join(','),
@@ -1765,7 +2072,7 @@ export default function AdminDashboard() {
               `"${new Date(athlete.created_at).toLocaleDateString()}"`
             ].join(','))
           ].join('\n')
-          filename = `athletes_report_${new Date().toISOString().split('T')[0]}.csv`
+          filename = `athletes_report_year_${yearLabel}${selectedSport ? `_${selectedSport.replace(/\s+/g, '_')}` : '_all_sports'}_${new Date().toISOString().split('T')[0]}.csv`
           break
 
         case 'files':
@@ -1788,23 +2095,33 @@ export default function AdminDashboard() {
               `"${new Date(file.created_at).toLocaleDateString()}"`
             ].join(','))
           ].join('\n')
-          filename = `files_report_${new Date().toISOString().split('T')[0]}.csv`
+          filename = `files_report_year_${yearLabel}_${new Date().toISOString().split('T')[0]}.csv`
           break
 
         case 'folders': {
-          let foldersData = selectedSportFolderForReport
-            ? folders.filter(f => f.id === selectedSportFolderForReport)
-            : folders
-          if (dateFilter) {
-            foldersData = foldersData.filter(f => {
-              const created = new Date(f.created_at)
-              return created >= dateFilter.startDate && created <= dateFilter.endDate
-            })
+          let foldersData = folders
+          
+          // Filter by selected folder if specified
+          if (selectedSportFolderForReport) {
+            foldersData = foldersData.filter(f => f.id === selectedSportFolderForReport)
+          }
+          
+          // Filter by year column (integer) from folders table
+          // This uses the year field which represents which year the folder is for
+          // Not using created_at - using the year column directly
+          if (dateRange) {
+            const selectedYear = parseInt(dateRange)
+            if (!isNaN(selectedYear)) {
+              // Filter folders where year column (integer) matches selected year
+              foldersData = foldersData.filter(f => f.year !== null && f.year === selectedYear)
+            }
           }
 
           const folderHeaders = [
             'Folder Name',
             'Description',
+            'Year',
+            'Sport Category',
             'Created By',
             'Total Subfolders',
             'Total Files',
@@ -1828,6 +2145,8 @@ export default function AdminDashboard() {
               return [
                 `"${folder.name || ''}"`,
                 `"${folder.description || ''}"`,
+                `"${folder.year || 'N/A'}"`,
+                `"${folder.sport_category || 'N/A'}"`,
                 `"${folder.created_by || 'N/A'}"`,
                 `"${relatedStudentFolders.length}"`,
                 `"${totalFilesForFolder}"`,
@@ -1840,7 +2159,7 @@ export default function AdminDashboard() {
           const folderName = selectedSportFolderForReport
             ? folders.find(f => f.id === selectedSportFolderForReport)?.name?.replace(/\s+/g, '_') || 'all'
             : 'all'
-          filename = `folders_report_${folderName}_${new Date().toISOString().split('T')[0]}.csv`
+          filename = `folders_report_year_${yearLabel}_${folderName}_${new Date().toISOString().split('T')[0]}.csv`
           break
         }
 
@@ -1861,7 +2180,7 @@ export default function AdminDashboard() {
               `"${new Date(announcement.created_at).toLocaleDateString()}"`
             ].join(','))
           ].join('\n')
-          filename = `announcements_report_${new Date().toISOString().split('T')[0]}.csv`
+          filename = `announcements_report_year_${yearLabel}_${new Date().toISOString().split('T')[0]}.csv`
           break
 
         case 'verification':
@@ -1885,7 +2204,7 @@ export default function AdminDashboard() {
               `"${new Date(athlete.created_at).toLocaleDateString()}"`
             ].join(','))
           ].join('\n')
-          filename = `verification_report_${new Date().toISOString().split('T')[0]}.csv`
+          filename = `verification_report_year_${yearLabel}_${new Date().toISOString().split('T')[0]}.csv`
           break
 
         default:
@@ -1921,14 +2240,12 @@ export default function AdminDashboard() {
       { value: 'verification', label: 'Verification Status' },
     ]
 
-    const dateRanges = [
-      { value: 'today', label: 'Today' },
-      { value: 'this-week', label: 'This Week' },
-      { value: 'this-month', label: 'This Month' },
-      { value: 'last-month', label: 'Last Month' },
-      { value: 'this-year', label: 'This Year' },
-      { value: 'custom-range', label: 'Custom Range' },
-    ]
+    // Generate year options from 2020 to current year + 1
+    const currentYear = new Date().getFullYear()
+    const dateRanges = Array.from({ length: currentYear - 2019 + 2 }, (_, i) => {
+      const year = 2020 + i
+      return { value: year.toString(), label: year.toString() }
+    }).reverse() // Show newest years first
 
     const quickReports = [
       { id: 'monthly-athletes', title: 'Monthly Athletes Summary', icon: FileText, type: 'athletes' },
@@ -1942,7 +2259,7 @@ export default function AdminDashboard() {
     }
 
     const getDateRangeLabel = () => {
-      return dateRanges.find(d => d.value === dateRange)?.label || 'This Month'
+      return dateRanges.find(d => d.value === dateRange)?.label || new Date().getFullYear().toString()
     }
 
     return (
@@ -2016,10 +2333,6 @@ export default function AdminDashboard() {
                         onClick={() => {
                           setDateRange(range.value)
                           setShowDateRangeDropdown(false)
-                          if (range.value !== 'custom-range') {
-                            setCustomStartDate('')
-                            setCustomEndDate('')
-                          }
                         }}
                         className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors first:rounded-t-lg last:rounded-b-lg"
                       >
@@ -2034,59 +2347,75 @@ export default function AdminDashboard() {
                         </div>
             </div>
 
-            {/* Sport Folder Selection (when report type is folders) */}
-            {reportType === 'folders' && (
+            {/* Sport Category Selection (for athletes and folders reports) */}
+            {(reportType === 'athletes' || reportType === 'folders') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Sport Folder</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  {reportType === 'athletes' ? 'Sport Category' : 'Sport Folder'}
+                </label>
                 <select
                   value={selectedSportFolderForReport}
                   onChange={(e) => setSelectedSportFolderForReport(e.target.value)}
                   className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
                 >
-                  <option value="">All Sport Folders</option>
-                  {folders.map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folder.name}
-                    </option>
-                  ))}
+                  <option value="">All {reportType === 'athletes' ? 'Sports' : 'Sport Folders'}</option>
+                  {reportType === 'athletes' ? (
+                    // For athletes report, show unique sport categories
+                    Array.from(new Set(folders.map(f => f.sport_category).filter(Boolean))).map(sport => {
+                      const folder = folders.find(f => f.sport_category === sport)
+                      return folder ? (
+                        <option key={folder.id} value={folder.id}>
+                          {sport}
+                        </option>
+                      ) : null
+                    })
+                  ) : (
+                    // For folders report, show all folders
+                    folders.map((folder) => (
+                      <option key={folder.id} value={folder.id}>
+                        {folder.name} {folder.year ? `(${folder.year})` : ''}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
             )}
 
-            {/* Custom Date Range (when date range is custom-range) */}
-            {dateRange === 'custom-range' && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Start Date</label>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
-                  />
+            {/* Report Summary */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">Report Summary</h3>
+              <div className="space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Report Type:</span>
+                  <span>{reportTypes.find(r => r.value === reportType)?.label || 'Athletes'}</span>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">End Date</label>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    min={customStartDate}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
-                  />
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Year:</span>
+                  <span>{dateRange || new Date().getFullYear()}</span>
                 </div>
+                {(reportType === 'athletes' || reportType === 'folders') && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{reportType === 'athletes' ? 'Sport Category:' : 'Sport Folder:'}</span>
+                    <span>
+                      {selectedSportFolderForReport 
+                        ? (reportType === 'athletes' 
+                          ? folders.find(f => f.id === selectedSportFolderForReport)?.sport_category || 'All Sports'
+                          : folders.find(f => f.id === selectedSportFolderForReport)?.name || 'All Folders')
+                        : 'All ' + (reportType === 'athletes' ? 'Sports' : 'Folders')}
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {/* Download Button */}
+            {/* Preview Button */}
             <div className="pt-2">
               <button
-                onClick={() => generateAndDownloadReport()}
-                disabled={dateRange === 'custom-range' && (!customStartDate || !customEndDate)}
-                className="w-full md:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                onClick={() => previewReport()}
+                className="w-full md:w-auto px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
               >
-                <Download className="w-5 h-5" />
-                Download Excel Report
+                <Eye className="w-5 h-5" />
+                Preview Report
               </button>
             </div>
           </div>
@@ -2625,6 +2954,98 @@ export default function AdminDashboard() {
                   </div>
                 </motion.div>
               </div>
+        )}
+
+        {/* Report Preview Modal */}
+        {showReportPreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white">{reportPreviewTitle}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{reportPreviewData.length} records</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      // Generate and download from preview
+                      const csvContent = [
+                        reportPreviewHeaders.join(','),
+                        ...reportPreviewData.map(row => 
+                          reportPreviewHeaders.map(header => `"${row[header] || ''}"`).join(',')
+                        )
+                      ].join('\n')
+                      
+                      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                      const link = document.createElement('a')
+                      link.href = URL.createObjectURL(blob)
+                      link.download = `${reportPreviewTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`
+                      link.click()
+                      link.remove()
+                      toast.success('Report downloaded')
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowReportPreview(false)
+                      setReportPreviewData([])
+                      setReportPreviewHeaders([])
+                      setReportPreviewTitle('')
+                    }}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-auto p-6">
+                {reportPreviewData.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-slate-500">No data to preview</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 dark:bg-slate-700">
+                          {reportPreviewHeaders.map((header) => (
+                            <th key={header} className="px-4 py-3 text-left text-sm font-semibold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-600">
+                              {header}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportPreviewData.slice(0, 100).map((row, idx) => (
+                          <tr key={idx} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                            {reportPreviewHeaders.map((header) => (
+                              <td key={header} className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
+                                {row[header] || '-'}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {reportPreviewData.length > 100 && (
+                      <p className="text-sm text-slate-500 mt-4 text-center">
+                        Showing first 100 of {reportPreviewData.length} records. Download full report to see all data.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
         )}
     </div>
   )
